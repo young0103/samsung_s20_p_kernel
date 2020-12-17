@@ -321,6 +321,9 @@ include scripts/subarch.include
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 ARCH		?= $(SUBARCH)
 
+CROSS_COMPILE ?= $(srctree)/toolchain/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-
+#CROSS_COMPILE   ?= ../PLATFORM/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-
+
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
 SRCARCH 	:= $(ARCH)
@@ -369,14 +372,29 @@ KBUILD_HOSTLDLIBS   := $(HOST_LFS_LIBS) $(HOSTLDLIBS)
 
 # Make variables (CC, etc...)
 AS		= $(CROSS_COMPILE)as
-LD		= $(CROSS_COMPILE)ld
-REAL_CC		= $(srctree)/toolchain/llvm-arm-toolchain-ship/10.0/bin/clang
 CPP		= $(CC) -E
+REAL_CC		= $(srctree)/toolchain/llvm-arm-toolchain-ship/10.0/bin/clang
+ifneq ($(LLVM),)
+CC		= clang
+LD		= ld.lld
+AR		= llvm-ar
+NM		= llvm-nm
+OBJCOPY		= llvm-objcopy
+OBJDUMP		= llvm-objdump
+READELF		= llvm-readelf
+OBJSIZE		= llvm-size
+STRIP		= llvm-strip
+else
+#CC		= $(CROSS_COMPILE)gcc
+CC    ?= $(srctree)/toolchain/clang/host/linux-x86/clang-r383902/bin/clang
+#CC    = ../PLATFORM/prebuilts/clang/host/linux-x86/clang-r383902/bin/clang
+LD		= $(CROSS_COMPILE)ld
 AR		= $(CROSS_COMPILE)ar
 NM		= $(CROSS_COMPILE)nm
 STRIP		= $(CROSS_COMPILE)strip
 OBJCOPY		= $(CROSS_COMPILE)objcopy
 OBJDUMP		= $(CROSS_COMPILE)objdump
+endif
 LEX		= flex
 YACC		= bison
 AWK		= awk
