@@ -980,3 +980,33 @@ config HIGHATOMIC_PAGEBLOCKS
 	  This value limits max number of highatomic pageblocks.
 
 source "mm/sec_mm/Kconfig"
+
+config GUP_GET_PTE_LOW_HIGH
+	bool
+
+config READ_ONLY_THP_FOR_FS
+	bool "Read-only THP for filesystems (EXPERIMENTAL)"
+	depends on TRANSPARENT_HUGE_PAGECACHE && SHMEM
+
+	help
+	  Allow khugepaged to put read-only file-backed pages in THP.
+
+	  This is marked experimental because it is a new feature. Write
+	  support of file THPs will be developed in the next few release
+	  cycles.
+
+#
+# Some architectures require a special hugepage directory format that is
+# required to support multiple hugepage sizes. For example a4fe3ce76
+# "powerpc/mm: Allow more flexible layouts for hugepage pagetables"
+# introduced it on powerpc.  This allows for a more flexible hugepage
+# pagetable layouts.
+#
+config ARCH_HAS_HUGEPD
+	bool
+
+config HPA
+	bool "High-order Pages Allocator"
+	select CMA
+	help
+	  Turns on High-order Pages Allocator based on page migration.
