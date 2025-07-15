@@ -1,93 +1,65 @@
-#!/bin/bash
-# LIGHTNING-KERNEL-BUILD
+#!/usr/bin/env bash
+###############################################################################
+#  LIGHTNING‑KERNEL‑BUILD  – y2q (SM‑G986N Snapdragon)  ########################
+###############################################################################
+set -euo pipefail
+IFS=$'\n\t'
 
-# Variables
-DIR="$(pwd)"
+### 0. 공통 함수 ##############################################################
+log() { printf "\e[1;34m%s\e[0m\n" "$*"; }
 
-PARENT_DIR="$(pwd)"
+clone_if_missing() {             # $1=url  $2=dest  [$3=branch]
+  [[ -d "$2/.git" ]] || git clone --depth=1 ${3:+--branch "$3"} "$1" "$2"
+}
 
-echo "Cloning dependencies"
-git clone --depth=1 --branch stock_s20_p https://github.com/young0103/samsung_s20_p_kernel kernel
-cd kernel 
-git clone --depth=1 --branch android-11.0.0_r48 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 aarch64-linux-android-4.9
-git clone --depth=1  https://github.com/prorooter007/android_prebuilts_clang_host_linux-x86_clang-6877366 clang-r383902
-git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
-echo "Done"
-KERNEL_DIR=$(pwd)
-OUT_DIR="$(pwd)/out"
-REPACK_DIR="${KERNEL_DIR}/AnyKernel3"
-IMAGE="${KERNEL_DIR}/arch/arm64/boot/Image"
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+### 1. 저장소 클론 ############################################################
+log ">>> Cloning dependencies"
+clone_if_missing https://github.com/young0103/samsung_s20_p_kernel kernel stock_s20_p
+cd kernel
+clone_if_missing https://github.com/prorooter007/android_prebuilts_clang_host_linux-x86_clang-6877366 \
+                 clang-r383902
+clone_if_missing https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/\
+aarch64/aarch64-linux-android-4.9 aarch64-linux-android-4.9 android-11.0.0_r48
+clone_if_missing https://github.com/osm0sis/AnyKernel3 AnyKernel3
+log ">>> Dependency cloning done"
 
-
-export PLATFORM_VERSION=11
-export ANDROID_MAJOR_VERSION=r
-export CROSS_COMPILE="$(pwd)/aarch64-linux-android-4.9/bin/aarch64-linux-android-"
-export CLANG_TRIPLE="$(pwd)/clang-r383902/bin/aarch64-linux-gnu-"
+### 2. 환경 변수 ##############################################################
 export ARCH=arm64
-export SEC_BUILD_CONF_VENDOR_BUILD_OS=13
-export LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN="$(pwd)/aarch64-linux-android-4.9/bin"
-export CLANG_PREBUILT_BIN="$(pwd)/clang-r383902/bin"
-export PATH=$PATH:$LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN:$CLANG_PREBUILT_BIN
-export LLVM=1
-#KERNEL_MAKE_ENV="LOCALVERSION=-Lightning-V2.5"
+export LLVM=1 LLVM_IAS=1               # Clang 통합 어셈블러
+export CLANG_PATH=$PWD/clang-r383902/bin
+export PATH=$CLANG_PATH:$PATH
+export CROSS_COMPILE=aarch64-linux-gnu- # Ubuntu 패키지(gcc‑aarch64‑linux‑gnu)
+OUT_DIR=$PWD/out
+mkdir -p "$OUT_DIR"
 
-# Color
-ON_BLUE=`echo -e "\033[44m"`	# On Blue
-BRED=`echo -e "\033[1;31m"`	# Bold Red
-BBLUE=`echo -e "\033[1;34m"`	# Bold Blue
-BGREEN=`echo -e "\033[1;32m"`	# Bold Green
-UNDER_LINE=`echo -e "\e[4m"`	# Text Under Line
-STD=`echo -e "\033[0m"`		# Text Clear
- 
-build_kernel(){  
-  echo "${BGREEN}***** Compiling kernel *****${STD}"
-  [ ! -d "$OUT_DIR" ] && mkdir $OUT_DIR
-  make -j$(nproc) -C $(pwd) $KERNEL_MAKE_ENV vendor/y2q_kor_singlex_defconfig
-  make -j$(nproc) -C $(pwd) $KERNEL_MAKE_ENV
+### 3. GSI 패치 ###############################################################
+log ">>> Applying GSI patch"
+git apply --check gsi-commits.patch && git apply gsi-commits.patch
 
-  [ -e "$(pwd)/arch/arm64/boot/Image.gz" ] && cp "$(pwd)/arch/arm64/boot/Image.gz" $OUT_DIR/Image.gz
-  if [ -e "$(pwd)/arch/arm64/boot/Image" ]; then
-    cp "$(pwd)/arch/arm64/boot/Image" $OUT_DIR/Image
+### 4. 커널 빌드 ##############################################################
+log ">>> Building kernel"
+make O="$OUT_DIR"   vendor/y2q_kor_singlex_defconfig
+make -j"$(nproc)"  O="$OUT_DIR" CC=clang LD=ld.lld \
+     LOCALVERSION=-Lightning-V2.5
 
-    DTB_DIR=$(pwd)/arch/arm64/boot/dts
-    $(pwd)/tools/mkdtimg cfg_create $(pwd)/out/dtb.img dt.configs/exynos2100.cfg -d ${DTB_DIR}/exynos
-    $(pwd)/tools/mkdtimg cfg_create $(pwd)/out/dtbo.img dt.configs/r9s.cfg -d ${DTB_DIR}/samsung/r9s
-    echo "${BGREEN}***** Ready to Roar *****${STD}"
-  fi
+### 5. DTB/DTBO 이미지 ########################################################
+if [[ -f dt.configs/y2q.cfg ]]; then
+  tools/mkdtimg cfg_create "$OUT_DIR/dtb.img" dt.configs/y2q.cfg \
+    -d arch/arm64/boot/dts
+fi
 
-  
-  if [ -e "$(pwd)/arch/arm64/boot/Image" ]; then
-    cd "$(pwd)/AnyKernel3"
-    git reset --hard
-    cp $IMAGE zImage
-    cp $OUT_DIR/dtbo.img dtbo.img
-    sed -i "s/ExampleKernel by osm0sis/y2q_kor_singlex Stock kernel by prorooter007/g" anykernel.sh
-    sed -i "s/=maguro/=r9s/g" anykernel.sh
-    sed -i "s/=toroplus/=/g" anykernel.sh
-    sed -i "s/=toro/=/g" anykernel.sh
-    sed -i "s/=tuna/=/g" anykernel.sh
-    sed -i "s/platform\/omap\/omap_hsmmc\.0\/by-name\/boot/bootdevice\/by-name\/boot/g" anykernel.sh
-    sed -i "s/backup_file/#backup_file/g" anykernel.sh
-    sed -i "s/replace_string/#replace_string/g" anykernel.sh
-    sed -i "s/insert_line/#insert_line/g" anykernel.sh
-    sed -i "s/append_file/#append_file/g" anykernel.sh
-    sed -i "s/patch_fstab/#patch_fstab/g" anykernel.sh
-    zip -r9 "$(pwd)/y2q_kor_singlex_kernel_.zip" * -x .git README.md *placeholder
-    
-    curl https://bashupload.com/$REPACK_DIR/y2q_kor_singlex_kernel_.zip --data-binary @$REPACK_DIR/y2q_kor_singlex_kernel_.zip
-  fi
-}
+### 6. AnyKernel3 리패킹 ######################################################
+log ">>> Re‑packing AnyKernel3"
+cd AnyKernel3
+git reset --hard
+cp ../"$OUT_DIR"/Image zImage
+[[ -f ../"$OUT_DIR"/dtbo.img ]] && cp ../"$OUT_DIR"/dtbo.img dtbo.img
+zip -r9 "../$OUT_DIR/y2q_kernel_${CIRCLE_SHA1:-local}.zip" . -x '*.git*'
 
-gsi_kernel(){
-  echo "${BGREEN}***** Apply GSI patch *****${STD}"
-
-  cd $KERNEL_DIR
-  git apply gsi-commits.patch
-}
-
-build_kernel
-
-gsi_kernel
-
-build_kernel
+### 7. (CircleCI 전용) 산출물 업로드 ###########################################
+# config.yml 예시:
+# - store_artifacts:
+#     path: out/y2q_kernel_${CIRCLE_SHA1}.zip
+#     destination: kernels/
+###############################################################################
+log ">>> Build finished – artifact at $OUT_DIR"
