@@ -8,8 +8,14 @@ IFS=$'\n\t'
 ### 0. 공통 함수 ##############################################################
 log() { printf "\e[1;34m%s\e[0m\n" "$*"; }
 
-clone_if_missing() {             # $1=url  $2=dest  [$3=branch]
-  [[ -d "$2/.git" ]] || git clone --depth=1 ${3:+--branch "$3"} "$1" "$2"
+clone_if_missing() {              # $1=url  $2=dest  [$3=branch]
+  local url=$1 dest=$2 branch=${3:-}
+  [[ -d "$dest/.git" ]] && return
+  if [[ -n $branch ]]; then
+    git clone --depth 1 -b "$branch" "$url" "$dest"
+  else
+    git clone --depth 1          "$url" "$dest"
+  fi
 }
 
 ### 1. 저장소 클론 ############################################################
