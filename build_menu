@@ -7,7 +7,7 @@ DIR="$(pwd)"
 PARENT_DIR="$(pwd)"
 
 echo "Cloning dependencies"
-git clone --depth=1 --branch stock_base_13_ack https://github.com/prorooter007/android_kernel_samsung_exynos2100 kernel
+git clone --depth=1 --branch stock_s20_p https://github.com/young0103/samsung_s20_p_kernel kernel
 cd kernel 
 git clone --depth=1 --branch android-11.0.0_r48 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 aarch64-linux-android-4.9
 git clone --depth=1  https://github.com/prorooter007/android_prebuilts_clang_host_linux-x86_clang-6877366 clang-r383902
@@ -43,7 +43,7 @@ STD=`echo -e "\033[0m"`		# Text Clear
 build_kernel(){  
   echo "${BGREEN}***** Compiling kernel *****${STD}"
   [ ! -d "$OUT_DIR" ] && mkdir $OUT_DIR
-  make -j$(nproc) -C $(pwd) $KERNEL_MAKE_ENV exynos2100-r9sxxx_defconfig
+  make -j$(nproc) -C $(pwd) $KERNEL_MAKE_ENV vendor/y2q_kor_singlex_defconfig
   make -j$(nproc) -C $(pwd) $KERNEL_MAKE_ENV
 
   [ -e "$(pwd)/arch/arm64/boot/Image.gz" ] && cp "$(pwd)/arch/arm64/boot/Image.gz" $OUT_DIR/Image.gz
@@ -62,7 +62,7 @@ build_kernel(){
     git reset --hard
     cp $IMAGE zImage
     cp $OUT_DIR/dtbo.img dtbo.img
-    sed -i "s/ExampleKernel by osm0sis/exynos2100-r9sxxx Stock kernel by prorooter007/g" anykernel.sh
+    sed -i "s/ExampleKernel by osm0sis/y2q_kor_singlex Stock kernel by prorooter007/g" anykernel.sh
     sed -i "s/=maguro/=r9s/g" anykernel.sh
     sed -i "s/=toroplus/=/g" anykernel.sh
     sed -i "s/=toro/=/g" anykernel.sh
@@ -73,9 +73,9 @@ build_kernel(){
     sed -i "s/insert_line/#insert_line/g" anykernel.sh
     sed -i "s/append_file/#append_file/g" anykernel.sh
     sed -i "s/patch_fstab/#patch_fstab/g" anykernel.sh
-    zip -r9 "$(pwd)/exynos2100-r9sxxx_kernel_.zip" * -x .git README.md *placeholder
+    zip -r9 "$(pwd)/y2q_kor_singlex_kernel_.zip" * -x .git README.md *placeholder
     
-    curl https://bashupload.com/$REPACK_DIR/exynos2100-r9sxxx_kernel_.zip --data-binary @$REPACK_DIR/exynos2100-r9sxxx_kernel_.zip
+    curl https://bashupload.com/$REPACK_DIR/y2q_kor_singlex_kernel_.zip --data-binary @$REPACK_DIR/y2q_kor_singlex_kernel_.zip
   fi
 }
 
